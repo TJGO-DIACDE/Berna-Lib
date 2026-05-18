@@ -12,18 +12,11 @@ Este projeto está licenciado sob a Licença Attribution-NonCommercial-ShareAlik
 Para mais informações, consulte o arquivo [LICENSE](./LICENSE).
 """
 import re
-from nltk.tokenize import word_tokenize
-
-PROCESS_METHODS = (
-    "filter_special_characters", "filter_spaces",
-    "filter_numbers", "filter_links", "filter_email",
-    "filter_cnpj", "filter_cpf", "filter_rg",
-    "filter_cep", "filter_oab", "filter_telefone",
-    "remove_stopwords", "remove_html",
-    "lemmatize", "stemming", "tokenize",
-)
+import nltk
 
 class TextUtils:
+    _spacy_models = {} # Cache para modelos spaCy
+
     @staticmethod
     def filter_special_characters(txt: str, change_for = "") -> str:
         return re.sub(r"[^\w\s]", change_for, txt)
@@ -73,13 +66,8 @@ class TextUtils:
 
     @staticmethod
     def filter_cpf(txt: str, change_for = "") -> str:
-        return re.sub(
-            r"\bcpf(?:/mf)?(?:\s+sob)?(?:\s+(?:n\S*|numero))?\
-            \s*:?\s*\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{3}\.?\
-            \d{3}\.?\d{3}-\d{2}\b",
-            change_for,
-            txt
-        )
+        pattern = r"\bcpf(?:/mf)?(?:\s+sob)?(?:\s+(?:n\S*|numero))?\s*:?\s*\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{3}\.?\d{3}\.?\d{3}-\d{2}\b"
+        return re.sub(pattern, change_for, txt, flags=re.IGNORECASE)
 
     @staticmethod
     def filter_rg(txt: str, change_for="") -> str:
@@ -122,16 +110,17 @@ class TextUtils:
     def filter_telefone(txt: str, change_for="") -> str:
         pattern = r"""
             (?:(?<=\s)|^)          # Lookbehind para espaço ou início
-            \(?\d{2}\)?[\s.]       # DDD com parênteses opcionais
-            (?:9[\s.])?            # 9 opcional
-            \d{4}[-.\s]?\d{4}      # Prefixo e sufixo
+            \(?\d{2}\)?            # DDD com parênteses opcionais
+            [-\s.]*                # Separador opcional entre DDD e número (hífen, espaço ou ponto)
+            (?:9[-\s.]?)?          # 9 opcional (pode ter hífen/espaço depois)
+            \d{4}[-.\s]?\d{4}      # Prefixo e sufixo (8 dígitos restantes)
             (?=(?:\s|[.,;:)]|$))   # Lookahead para pontuação ou fim
             |                      # --- OU ---
-            (?:(?<=\s)|^)9\d{4}    # Celular começando com 9
+            (?:(?<=\s)|^)9\d{4}    # Celular começando com 9 sem DDD
             [-.\s]?\d{4}
             (?=(?:\s|[.,;:)]|$))
             |                      # --- OU ---
-            (?:(?<=\s)|^)9\d{8}    # Formato grudado
+            (?:(?<=\s)|^)9\d{8}    # Formato grudado total
             (?=(?:\s|[.,;:)]|$))
         """
 
@@ -141,12 +130,15 @@ class TextUtils:
     def remove_stopwords(txt: str, language = "portuguese") -> str:
         try:
             from nltk.corpus import stopwords
-            stopwords_set = set(stopwords.words(language))
+            # Check if stopwords for the language are available
+            stopwords.words(language)
         except LookupError:
-            import nltk
-            nltk.download("stopwords", quiet=True)
-            stopwords_set = set(stopwords.words(language))
-
+            raise RuntimeError(
+                f"Recurso NLTK 'stopwords' para '{language}' ausente. "
+                f"Por favor, execute no seu terminal: python -m nltk.downloader stopwords"
+            )
+        
+        stopwords_set = set(stopwords.words(language))
         tokens = txt.split()
         filtered_tokens = [word for word in tokens if word not in stopwords_set]
         return " ".join(filtered_tokens)
@@ -165,12 +157,18 @@ class TextUtils:
     @staticmethod
     def lemmatize(txt: str, core = 'pt_core_news_sm') -> str:
         """Lemmatize words in a string using Spacy."""
-        try:
-            import spacy
-            nlp = spacy.load(core)
-        except OSError:
-            raise OSError(f"SpaCy model to {core} not found. Download it: python -m spacy download <core name>")
-
+        if core not in TextUtils._spacy_models:
+            try:
+                import spacy
+                TextUtils._spacy_models[core] = spacy.load(core)
+            except OSError:
+                raise OSError(
+                    f"Modelo SpaCy '{core}' não encontrado. "
+                    f"Por favor, faça o download executando no seu terminal: "
+                    f"python -m spacy download {core}"
+                )
+        
+        nlp = TextUtils._spacy_models[core]
         doc = nlp(txt)
         return " ".join([token.lemma_.lower() for token in doc])
 
@@ -190,4 +188,11 @@ class TextUtils:
 
     @staticmethod
     def tokenize(txt: str) ->list[str]:
-        return word_tokenize(txt)
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            raise RuntimeError(
+                "Recurso NLTK 'punkt' ausente. "
+                "Por favor, execute no seu terminal: python -m nltk.downloader punkt"
+            )
+        return nltk.word_tokenize(txt)

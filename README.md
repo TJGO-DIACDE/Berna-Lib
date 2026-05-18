@@ -2,10 +2,9 @@
 
 Biblioteca desenvolvida pelo **TJGO (Diretoria de Inteligência Artificial, Ciência de Dados e Estatística)**. Este pacote oferece ferramentas robustas para pré-processamento de texto e cálculo de similaridade textual, essenciais para processamento de linguagem natural (NLP) e preparação de dados para LLMs.
 
-O núcleo das operações de texto é fornecido pela classe `TextUtils`, acessível através de duas interfaces:
+O núcleo das operações de texto é fornecido pela classe `TextUtils`, acessível através da seguinte interface:
 
-1. **Interface Fluente (`ProcessLinked`):** Para aplicações diretas e encadeadas.
-2. **Processador Baseado em Pipeline (`ProcessPipeline`):** Para workflows configuráveis e reprodutíveis.
+### **Interface Fluente (`ProcessLinked`):** Para aplicações diretas e encadeadas.
 
 Para cálculo de similaridade textual, a biblioteca disponibiliza a classe `Berna`.
 
@@ -16,7 +15,6 @@ Para cálculo de similaridade textual, a biblioteca disponibiliza a classe `Bern
 
 ## Instalação
 * **PyPI:** [berna-tjgo-diacde-lib](https://pypi.org/project/berna-tjgo-diacde-lib/)
-
 Para instalar a biblioteca, utilize o gerenciador de pacotes `pip`:
 
 ```bash
@@ -28,67 +26,99 @@ pip install berna-tjgo-diacde-lib
 
 O projeto utiliza as seguintes bibliotecas:
 
-* `spacy`
-* `nltk`
-* `beautifulsoup4`
-* `snowballstemmer`
+*   `spacy`
+*   `nltk`
+*   `beautifulsoup4`
+*   `snowballstemmer`
 
-*Nota: Alguns modelos do spaCy (como `pt_core_news_sm`) podem precisar ser baixados separadamente.*
+**Recursos Necessários (Download Manual):**
+
+Para o funcionamento correto da biblioteca, são necessários os seguintes recursos que devem ser baixados manualmente:
+
+*   **NLTK:**
+    *   `stopwords` (para remoção de stopwords):
+        ```bash
+        python -m nltk.downloader stopwords
+        ```
+    *   `punkt` (para tokenização):
+        ```bash
+        python -m nltk.downloader punkt
+        ```
+*   **spaCy:**
+    *   Modelo de linguagem em português (ex: `pt_core_news_sm` para lematização):
+        ```bash
+        python -m spacy download pt_core_news_sm
+        ```
+
+É crucial garantir que estes recursos estejam instalados antes de utilizar as funcionalidades que dependem deles.
 
 ---
 
 ## Módulo de Pré-Processamento
 
-### 1. Interface Fluente com `ProcessLinked`
+### Interface Fluente com `ProcessLinked`
 
-Ideal para transformações rápidas de forma legível.
+A classe `ProcessLinked` adota o padrão *Builder*, permitindo que você monte uma receita de pré-processamento personalizada e a execute sob demanda. Isso é ideal tanto para higienização de dados sensíveis (LGPD) quanto para a preparação de textos para LLMs.
+
+#### Cenário A: Anonimização de Peças Jurídicas (Substituição de Dados)
+
+Em vez de apenas deletar as informações, você pode usar o argumento `change_for` para mascarar dados sensíveis antes de enviar o texto para uma API externa ou modelo público.
 
 ```python
 from berna_tjgo_diacde_lib import ProcessLinked
 
-text = "  Olá, mundo! Este é um teste com números 123. E e-mail: test@example.com.  "
-
-processed_text = (
-    ProcessLinked(text)
-    .filter_email()              # Remove e-mails
-    .filter_spaces()             # Remove múltiplos espaços
-    .filter_special_characters() # Remove pontuações
-    .filter_numbers()            # Remove números
-    .stemming()                  # Reduz palavras à raiz (ex: 'correndo' -> 'corr')
-    .as_str()                    # Obtém a string final
+# 1. Define a receita de anonimização (o pipeline é reutilizável)
+anonimizador = (
+    ProcessLinked()
+    .filter_cpf(change_for="[CPF_ANONIMIZADO]")
+    .filter_cnpj(change_for="[CNPJ_ANONIMIZADO]")
+    .filter_oab(change_for="[OAB_ANONIMIZADO]")
+    .filter_telefone(change_for="[TEL_ANONIMIZADO]")
+    .filter_spaces() # Garante espaçamento limpo após as trocas
 )
 
-print(processed_text)
-# Saída: Olá mund Este é um test com númer E email
+# 2. Aplica a mesma receita em diferentes textos
+peticao_1 = "O autor João, inscrito no CPF 123.456.789-00 e OAB/GO 00.000, liga no (62) 99999-9999."
+peticao_2 = "A empresa X (CNPJ 12.345.678/0001-99) não respondeu aos chamados."
+
+print(anonimizador.as_str(peticao_1))
+# Saída: O autor João, inscrito no [CPF_ANONIMIZADO] e [OAB_ANONIMIZADO], liga no [TEL_ANONIMIZADO].
+
+print(anonimizador.as_str(peticao_2))
+# Saída: A empresa X ([CNPJ_ANONIMIZADO]) não respondeu aos chamados.
 
 ```
 
-### 2. Pipeline Declarativo com `ProcessPipeline`
+#### Cenário B: Pipeline para NLP Tradicional (Tokenização e Lematização)
 
-Ideal para definir fluxos complexos via configuração de lista, reutilizando pipelines.
+Se o seu objetivo é alimentar modelos de Bag-of-Words, TF-IDF ou calcular similaridade pura, você pode transformar o texto diretamente em uma lista de tokens limpos usando o gatilho final `as_tokens()`.
 
 ```python
-from berna_tjgo_diacde_lib import ProcessPipeline
+from berna_tjgo_diacde_lib import ProcessLinked
 
-text = "  Olá, mundo! Este é um teste com números 123. E e-mail: test@example.com.  "
+documento_sujo = """
+<p>O réu estava <b>correndo</b> risco de vida na comarca de Goiânia.</p>
+Acesse o processo em https://tjgo.jus.br ou envie e-mail para processual@tjgo.jus.br.
+"""
 
-pipeline_config = [
-    {"name": "filter_email"},
-    {"name": "filter_spaces"},
-    {"name": "filter_special_characters"},
-    {"name": "filter_numbers"},
-    {"name": "remove_stopwords", "language": "portuguese"},
-    {"name": "stemming"}
-]
+# Monta o pipeline de limpeza profunda
+pipeline_nlp = (
+    ProcessLinked()
+    .remove_html()               # Remove tags <p> e <b>
+    .filter_links()              # Remove a URL do TJGO
+    .filter_email()              # Remove o e-mail institucional
+    .filter_special_characters() # Remove pontuações restantes
+    .lemmatize()                 # Reduz palavras (ex: "correndo" -> "correr")
+    .remove_stopwords()          # Remove "O", "estava", "de", "para", etc.
+)
 
-processor = ProcessPipeline(pipeline_config)
-processed_text = processor.process(text)
+# Dispara o processamento convertendo direto para lista de tokens
+tokens_limpos = pipeline_nlp.as_tokens(documento_sujo)
 
-print(processed_text)
+print(tokens_limpos)
+# Saída provável: ['réu', 'correr', 'risco', 'vida', 'comarca', 'goiânia', 'acesse', 'processo', 'enviar', 'email]
 
 ```
-
----
 
 ### Métodos Disponíveis (via `TextUtils`)
 
@@ -118,8 +148,8 @@ Este módulo oferece funcionalidades para calcular a similaridade textual entre 
 
 A classe `Berna` permite comparar duas strings e retorna o percentual de similaridade com base em métricas comuns:
 
-*   **Similaridade de Cosseno (`sim_cosseno`):** Mede o cosseno do ângulo entre dois vetores não nulos em um espaço multidimensional.
-*   **Índice de Jaccard (`sim_jaccard`):** Mede a similaridade entre dois conjuntos finitos, sendo definida como o tamanho da interseção dividido pelo tamanho da união dos conjuntos.
+*   **Similaridade de Cosseno (`cosseno`):** Mede o cosseno do ângulo entre dois vetores não nulos em um espaço multidimensional.
+*   **Índice de Jaccard (`jaccard`):** Mede a similaridade entre dois conjuntos finitos, sendo definida como o tamanho da interseção dividido pelo tamanho da união dos conjuntos.
 
 #### Exemplo de Uso:
 
@@ -131,8 +161,8 @@ doc2 = "Este documento é o segundo para testar a similaridade textual."
 
 similarity_calculator = Berna(doc1, doc2)
 
-cosine_similarity = similarity_calculator.sim_cosseno
-jaccard_similarity = similarity_calculator.sim_jaccard
+cosine_similarity = similarity_calculator.cosseno
+jaccard_similarity = similarity_calculator.jaccard
 
 print(f"Similaridade de Cosseno: {cosine_similarity:.2f}%")
 print(f"Similaridade de Jaccard: {jaccard_similarity:.2f}%")
@@ -142,16 +172,12 @@ print(f"Similaridade de Jaccard: {jaccard_similarity:.2f}%")
 # Similaridade de Jaccard: YY.YY%
 ```
 
-Note também o uso dos métodos estaticos calc_jaccard e calc_cosseno:
-```python
-Berna.calc_jaccard(doc1, doc2)
-```
-
 ---
 
 ## Licença
 
-Este projeto está licenciado sob a **MIT License**. Você é livre para usar, modificar e distribuir o software, desde que mantenha os avisos de copyright.
+Este projeto está licenciado sob a Licença Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0). Você pode compartilhar, adaptar e construir sobre o material, desde que atribua crédito apropriado, não use o material para fins comerciais e distribua suas contribuições sob a mesma licença.
+Para mais informações, consulte o arquivo [LICENSE](./LICENSE).
 
 ---
 

@@ -11,107 +11,109 @@ Created on Sun Jul 21 09:54:07 2024
 Este projeto está licenciado sob a Licença Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0). Você pode compartilhar, adaptar e construir sobre o material, desde que atribua crédito apropriado, não use o material para fins comerciais e distribua suas contribuições sob a mesma licença.
 Para mais informações, consulte o arquivo [LICENSE](./LICENSE).
 """
-from typing import Self
-import nltk
+from typing import Self, Callable
 
-from . import TextUtils, PROCESS_METHODS
+from .text_utils import TextUtils
 
 # Linked Methods, Static
 class ProcessLinked:
-    def __init__(self, txt: str) -> Self:
-        if not isinstance(txt, str):
-            raise TypeError("Input must be a string")
-
-        self.txt = txt
+    def __init__(self) -> Self:
+        self._steps: list[tuple[Callable, dict[str, any]]] = []
 
     def filter_special_characters(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_special_characters(self.txt, change_for)
+        self._add_step(TextUtils.filter_special_characters, change_for=change_for)
         return self
 
     def filter_spaces(self, change_for = " ") -> Self:
-        self.txt = TextUtils.filter_spaces(self.txt, change_for)
+        self._add_step(TextUtils.filter_spaces, change_for=change_for)
         return self
 
     def filter_numbers(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_numbers(self.txt, change_for)
+        self._add_step(TextUtils.filter_numbers, change_for=change_for)
         return self
 
     def filter_links(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_links(self.txt, change_for)
+        self._add_step(TextUtils.filter_links, change_for=change_for)
         return self
 
     def filter_email(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_email(self.txt, change_for)
+        self._add_step(TextUtils.filter_email, change_for=change_for)
         return self
 
     def filter_cnpj(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_cnpj(self.txt, change_for)
+        self._add_step(TextUtils.filter_cnpj, change_for=change_for)
         return self
 
     def filter_cpf(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_cpf(self.txt, change_for)
+        self._add_step(TextUtils.filter_cpf, change_for=change_for)
         return self
 
     def filter_rg(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_rg(self.txt, change_for)
+        self._add_step(TextUtils.filter_rg, change_for=change_for)
         return self
 
     def filter_cep(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_cep(self.txt, change_for)
+        self._add_step(TextUtils.filter_cep, change_for=change_for)
         return self
 
     def filter_oab(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_oab(self.txt, change_for)
+        self._add_step(TextUtils.filter_oab, change_for=change_for)
         return self
 
     def filter_telefone(self, change_for = "") -> Self:
-        self.txt = TextUtils.filter_telefone(self.txt, change_for)
+        self._add_step(TextUtils.filter_telefone, change_for=change_for)
         return self
 
     def remove_stopwords(self, language = "portuguese") -> Self:
-        self.txt = TextUtils.remove_stopwords(self.txt, language)
+        self._add_step(TextUtils.remove_stopwords, language=language)
         return self
 
     def remove_html(self) -> Self:
-        self.txt = TextUtils.remove_html(self.txt)
+        self._add_step(TextUtils.remove_html)
         return self
 
     def lemmatize(self, core = "pt_core_news_sm") -> Self:
-        self.txt = TextUtils.lemmatize(self.txt, core)
+        self._add_step(TextUtils.lemmatize, core=core)
         return self
 
     def stemming(self) -> Self:
-        self.txt = TextUtils.stemming(self.txt)
+        self._add_step(TextUtils.stemming)
         return self
 
-    # Utils
-    def as_tokens(self) -> list[str]:
-        return TextUtils.tokenize(self.txt)
-    
-    def as_str(self) -> str:
-        return self.txt
+    # Ending Trigger
+    def as_tokens(self, txt: str) -> list[str]:
+        return TextUtils.tokenize(self._process(txt))
 
-    def __str__(self) -> str:
-        return self.txt
+    def as_str(self, txt: str) -> str:
+        return self._process(txt)
 
-# Pipeline Class
-class ProcessPipeline:
-    def __init__(self, pipeline: list[dict[str, str|dict]]) -> Self:
-        self.pipeline = pipeline
-
-    def process(self, txt: str) -> str:
-        if not isinstance(txt, str):
-            raise TypeError("Input must be a string")
-
-        for proc in self.pipeline:
-            if (proc_name := proc["name"]) not in PROCESS_METHODS:
-                raise Exception(f"{proc_name} does not exist as a preprocessing method.")
-
-        for proc in self.pipeline:
-            if proc_meth := getattr(TextUtils, proc.get("name"), None):
-                proc.pop("name")
-                txt = proc_meth(txt, **proc)
-            else:
-                raise Exception("Bad pipeline format.")
-
+    # Internal Utils
+    def _process(self, txt: str) -> str:
+        for proc, kwargs in self._steps:
+            txt = proc(txt, **kwargs)
         return txt
+
+    def _add_step(self, fn: Callable, **kwargs):
+        self._steps.append((fn, kwargs))
+
+documento_sujo = """
+<p>O réu estava <b>correndo</b> risco de vida na comarca de Goiânia.</p>
+Acesse o processo em https://tjgo.jus.br ou envie e-mail para processual@tjgo.jus.br.
+"""
+
+# Monta o pipeline de limpeza profunda
+pipeline_nlp = (
+    ProcessLinked()
+    .remove_html()               # Remove tags <p> e <b>
+    .filter_links()              # Remove a URL do TJGO
+    .filter_email()              # Remove o e-mail institucional
+    .filter_special_characters() # Remove pontuações restantes
+    .lemmatize()                 # Reduz palavras (ex: "correndo" -> "correr")
+    .remove_stopwords()          # Remove "O", "estava", "de", "para", etc.
+)
+
+# Dispara o processamento convertendo direto para lista de tokens
+tokens_limpos = pipeline_nlp.as_tokens(documento_sujo)
+
+print(tokens_limpos)
+# Saída provável: ['réu', 'correr', 'risco', 'vida', 'comarca', 'Goiânia', 'acesse', 'processo', 'enviar']
