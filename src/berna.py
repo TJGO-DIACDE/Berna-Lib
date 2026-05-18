@@ -18,40 +18,38 @@ from .text_utils import TextUtils
 
 class Berna:
     def __init__(self, doc1: str, doc2: str) -> None:
-        if not isinstance(doc1, str) or not isinstance(doc2, str):
-            raise ValueError("Ambas as sentenças devem ser strings válidas.")
-        if len(doc1) == 0 or len(doc2) == 0:
-            raise ValueError("Erro! As sentenças não podem ser vazias.")
-
-        nltk.download('punkt')
+        if not isinstance(doc1, str) or not isinstance(doc2, str) or not doc1 or not doc2:
+            raise ValueError("Sentenças inválidas ou vazias.")
 
         self.vec_terms1 = TextUtils.tokenize(doc1)
         self.vec_terms2 = TextUtils.tokenize(doc2)
-        vec_terms_tuple = (self.vec_terms1, self.vec_terms2)
+        self._jaccard = None
+        self._cosseno = None
 
-        self.sim_jaccard = self.calc_jaccard(*vec_terms_tuple)
-        self.sim_cosseno = self.calc_cosseno(*vec_terms_tuple)
+    @property
+    def jaccard(self) -> float:
+        if self._jaccard is None:
+            set1, set2 = set(self.vec_terms1), set(self.vec_terms2)
+            
+            union_terms = len(set1 | set2)
+            intersection_terms = len(set1 & set2)
 
-    @staticmethod
-    def calc_jaccard(vec_terms1: list[str], vec_terms2: list[str]) -> float:
-        set1, set2 = set(vec_terms1), set(vec_terms2)
-        
-        union_terms = len(set1 | set2)
-        intersection_terms = len(set1 & set2)
+            if union_terms == 0: return 0.0 # Evita divisão por zero
+            return round((intersection_terms / union_terms) * 100, 4)
+        return self._jaccard
 
-        if union_terms == 0: return 0.0 # Evita divisão por zero
-        return round((intersection_terms / union_terms) * 100, 4)
+    @property
+    def cosseno(self) -> float:
+        if self._cosseno is None:
+            union_terms = list(set(self.vec_terms1) | set(self.vec_terms2))
 
-    @staticmethod
-    def calc_cosseno(vec_terms1: list[str], vec_terms2: list[str]) -> float:
-        union_terms = list(set(vec_terms1) | set(vec_terms2))
-        
-        l1 = [0] * len(union_terms)
-        l2 = [0] * len(union_terms)
+            l1 = [0] * len(union_terms)
+            l2 = [0] * len(union_terms)
 
-        for w in vec_terms1:
-            l1[union_terms.index(w)] += 1
-        for w in vec_terms2:
-            l2[union_terms.index(w)] += 1
+            for w in self.vec_terms1:
+                l1[union_terms.index(w)] += 1
+            for w in self.vec_terms2:
+                l2[union_terms.index(w)] += 1
 
-        return round((1 - cosine_distance(l1, l2)) * 100, 4)
+            return round((1 - cosine_distance(l1, l2)) * 100, 4)
+        return self._cosseno
