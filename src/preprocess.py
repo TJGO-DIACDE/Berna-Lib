@@ -79,6 +79,10 @@ class ProcessLinked:
     def stemming(self) -> Self:
         self._add_step(TextUtils.stemming)
         return self
+    
+    def lower(self) -> Self:
+        self._add_step(str.lower)
+        return self
 
     # Ending Trigger
     def as_tokens(self, txt: str) -> list[str]:
@@ -96,24 +100,25 @@ class ProcessLinked:
     def _add_step(self, fn: Callable, **kwargs):
         self._steps.append((fn, kwargs))
 
-documento_sujo = """
-<p>O réu estava <b>correndo</b> risco de vida na comarca de Goiânia.</p>
-Acesse o processo em https://tjgo.jus.br ou envie e-mail para processual@tjgo.jus.br.
-"""
+if __name__ == "__main__":
+    documento_sujo = """
+    <p>O réu estava <b>CORRENDO</b> risco de vida na comarca de Goiânia.</p>
+    Acesse o processo em https://tjgo.jus.br ou envie e-mail para processual@tjgo.jus.br.
+    """
 
-# Monta o pipeline de limpeza profunda
-pipeline_nlp = (
-    ProcessLinked()
-    .remove_html()               # Remove tags <p> e <b>
-    .filter_links()              # Remove a URL do TJGO
-    .filter_email()              # Remove o e-mail institucional
-    .filter_special_characters() # Remove pontuações restantes
-    .lemmatize()                 # Reduz palavras (ex: "correndo" -> "correr")
-    .remove_stopwords()          # Remove "O", "estava", "de", "para", etc.
-)
+    # Monta o pipeline de limpeza profunda
+    pipeline_nlp = (
+        ProcessLinked()
+        .remove_html()               # Remove tags <p> e <b>
+        .filter_links()              # Remove a URL do TJGO
+        .filter_email()              # Remove o e-mail institucional
+        .filter_special_characters() # Remove pontuações restantes
+        .lemmatize()                 # Reduz palavras (ex: "correndo" -> "correr")
+        .remove_stopwords()          # Remove "O", "estava", "de", "para", etc.
+    )
 
-# Dispara o processamento convertendo direto para lista de tokens
-tokens_limpos = pipeline_nlp.as_tokens(documento_sujo)
+    # Dispara o processamento convertendo direto para lista de tokens
+    tokens_limpos = pipeline_nlp.as_tokens(documento_sujo)
 
-print(tokens_limpos)
-# Saída provável: ['réu', 'correr', 'risco', 'vida', 'comarca', 'Goiânia', 'acesse', 'processo', 'enviar']
+    print(tokens_limpos)
+    # Saída provável: ['réu', 'correr', 'risco', 'vida', 'comarca', 'Goiânia', 'acesse', 'processo', 'enviar']
