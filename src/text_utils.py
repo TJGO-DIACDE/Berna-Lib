@@ -18,27 +18,28 @@ class TextUtils:
     _spacy_models = {} # Cache para modelos spaCy
 
     @staticmethod
-    def filter_special_characters(txt: str, change_for = "") -> str:
-        return re.sub(r"[^\w\s]", change_for, txt)
+    def filter_special_characters(txt: str, change_to = "") -> str:
+        return re.sub(r"[^\w\s]", change_to, txt)
 
     @staticmethod
-    def filter_spaces(txt: str, change_for = " ") -> str:
-        return re.sub(r"\s+", change_for, txt).strip()
+    def filter_spaces(txt: str, change_to = " ") -> str:
+        txt_limpo = re.sub(r"[\x00-\x1F]+", "", txt)
+        return re.sub(r"\s+", change_to, txt_limpo).strip()
 
     @staticmethod
-    def filter_numbers(txt: str, change_for = "") -> str:
-        return re.sub(r"\d", change_for, txt)
+    def filter_numbers(txt: str, change_to = "") -> str:
+        return re.sub(r"\d", change_to, txt)
 
     @staticmethod
-    def filter_links(txt: str, change_for="") -> str:
+    def filter_links(txt: str, change_to="") -> str:
         pattern = r"""
             (?:https?://|www\.) # Protocolo (http/https) ou www
             \S+                 # Um ou mais caracteres que não sejam espaço
         """
-        return re.sub(pattern, change_for, txt, flags=re.VERBOSE)
+        return re.sub(pattern, change_to, txt, flags=re.VERBOSE)
 
     @staticmethod
-    def filter_email(txt: str, change_for="") -> str:
+    def filter_email(txt: str, change_to="") -> str:
         pattern = r"""
             (?:mailto:)?       # Prefixo opcional mailto:
             [\w.+-]+           # Nome do usuário (letras, números, pontos, etc)
@@ -46,10 +47,10 @@ class TextUtils:
             [\w-]+             # Domínio
             (?:\.[\w-]+)+      # Extensão (.com, .com.br, etc)
         """
-        return re.sub(pattern, change_for, txt, flags=re.VERBOSE)
+        return re.sub(pattern, change_to, txt, flags=re.VERBOSE)
 
     @staticmethod
-    def filter_cnpj(txt: str, change_for="") -> str:
+    def filter_cnpj(txt: str, change_to="") -> str:
         # Note como o uso do VERBOSE permite explicar a lógica complexa do CNPJ
         pattern = r"""
             \bcnpj(?:/mf)?            # Palavra 'cnpj' ou 'cnpj/mf'
@@ -62,25 +63,25 @@ class TextUtils:
             \b\d{2,3}\.?\d{3}\.?      # Formato numérico puro
             \d{3}/\d{4}-\d{2}\b
         """
-        return re.sub(pattern, change_for, txt, flags=re.VERBOSE | re.IGNORECASE)
+        return re.sub(pattern, change_to, txt, flags=re.VERBOSE | re.IGNORECASE)
 
     @staticmethod
-    def filter_cpf(txt: str, change_for = "") -> str:
+    def filter_cpf(txt: str, change_to = "") -> str:
         pattern = r"\bcpf(?:/mf)?(?:\s+sob)?(?:\s+(?:n\S*|numero))?\s*:?\s*\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{3}\.?\d{3}\.?\d{3}-\d{2}\b"
-        return re.sub(pattern, change_for, txt, flags=re.IGNORECASE)
+        return re.sub(pattern, change_to, txt, flags=re.IGNORECASE)
 
     @staticmethod
-    def filter_rg(txt: str, change_for="") -> str:
+    def filter_rg(txt: str, change_to="") -> str:
         pattern = r"""
             \brg\b                  # Palavra 'rg' com limite de borda
             (?:\s+(?:n\S*|numero))? # Opcional: ' n°', ' n.', ' numero'
             \s*:?\s*                # Opcional: dois pontos e espaços
             \d{4,14}\b              # De 4 a 14 dígitos numéricos
         """
-        return re.sub(pattern, change_for, txt, flags=re.IGNORECASE | re.VERBOSE)
+        return re.sub(pattern, change_to, txt, flags=re.IGNORECASE | re.VERBOSE)
 
     @staticmethod
-    def filter_cep(txt: str, change_for="") -> str:
+    def filter_cep(txt: str, change_to="") -> str:
         pattern = r"""
             \bcep\b                 # Palavra 'cep'
             (?:\s+(?:n\S*|numero))? # Opcional: ' n°', etc
@@ -89,10 +90,10 @@ class TextUtils:
             |                       # --- OU ---
             \b\d{5}-\d{3}\b         # Apenas o número formatado 00000-000
         """
-        return re.sub(pattern, change_for, txt, flags=re.IGNORECASE | re.VERBOSE)
+        return re.sub(pattern, change_to, txt, flags=re.IGNORECASE | re.VERBOSE)
 
     @staticmethod
-    def filter_oab(txt: str, change_for="") -> str:
+    def filter_oab(txt: str, change_to="") -> str:
         pattern = r"""
             \boab\b                 # Palavra 'oab'
             \s*[/\-]?\s*            # Opcional: barra ou hífen
@@ -104,10 +105,10 @@ class TextUtils:
                 \d{4,12}                # Apenas números sequenciais
             )\b
         """
-        return re.sub(pattern, change_for, txt, flags=re.IGNORECASE | re.VERBOSE)
+        return re.sub(pattern, change_to, txt, flags=re.IGNORECASE | re.VERBOSE)
 
     @staticmethod
-    def filter_telefone(txt: str, change_for="") -> str:
+    def filter_telefone(txt: str, change_to="") -> str:
         pattern = r"""
             (?:(?<=\s)|^)          # Lookbehind para espaço ou início
             \(?\d{2}\)?            # DDD com parênteses opcionais
@@ -124,7 +125,7 @@ class TextUtils:
             (?=(?:\s|[.,;:)]|$))
         """
 
-        return re.sub(pattern, change_for, txt, flags=re.VERBOSE)
+        return re.sub(pattern, change_to, txt, flags=re.VERBOSE)
 
     @staticmethod
     def remove_stopwords(txt: str, language = "portuguese") -> str:
@@ -145,7 +146,7 @@ class TextUtils:
 
     @staticmethod
     def remove_html(txt: str) -> str:
-        """Removes HTML tags from a string using BeautifulSoup."""
+        """Remove tags HTML de uma string usando BeautifulSoup."""
         try:
             from bs4 import BeautifulSoup
         except ImportError:
@@ -156,7 +157,7 @@ class TextUtils:
 
     @staticmethod
     def lemmatize(txt: str, core = 'pt_core_news_sm') -> str:
-        """Lemmatize words in a string using Spacy."""
+        """Lemmatiza palavras em uma string usando Spacy."""
         if core not in TextUtils._spacy_models:
             try:
                 import spacy
@@ -173,26 +174,76 @@ class TextUtils:
         return " ".join([token.lemma_.lower() for token in doc])
 
     @staticmethod
-    def stemming(txt: str) -> str:
-        """Stems words in a string using the Portuguese snowballstemmer."""
-        try:
-            from snowballstemmer import stemmer
-        except ImportError:
-            raise ImportError("snowballstemmer is required for stemming. Please install it: pip install snowballstemmer")
+    def stemming(txt: str, stem_language = "portuguese") -> str:
+        """Deriva palavras em uma string usando SnowballStemmer."""
 
-        stemmer_pt = stemmer('portuguese')
+        try:
+            from nltk.stem.snowball import SnowballStemmer
+            stemmer_pt = SnowballStemmer(stem_language)
+        except ImportError:
+            raise ImportError("NLTK é necessário. Instale: pip install nltk")
+
+        stemmer_pt = SnowballStemmer(stem_language)
     
         words = txt.split()
-        stemmed_words = [stemmer_pt.stemWord(word) for word in words]
+        stemmed_words = [stemmer_pt.stem(word) for word in words]
         return " ".join(stemmed_words)
 
     @staticmethod
     def tokenize(txt: str) ->list[str]:
         try:
-            nltk.data.find('tokenizers/punkt')
+            nltk.data.find("tokenizers/punkt")
         except LookupError:
             raise RuntimeError(
                 "Recurso NLTK 'punkt' ausente. "
                 "Por favor, execute no seu terminal: python -m nltk.downloader punkt"
             )
         return nltk.word_tokenize(txt)
+    
+    @staticmethod
+    def normalizacao_hibrida(txt: str, core = "pt_core_news_sm", stem_language = "portuguese") -> list[str]:
+        """
+        Executa os passos: POS Tagging, Remoção de Pontuação, 
+        Lematização, Stemming Seletivo e Filtro de tamanho mínimo.
+        Retorna uma lista de tokens (strings).
+        """
+        # Garante o carregamento do modelo spaCy
+        if core not in TextUtils._spacy_models:
+            try:
+                import spacy
+                TextUtils._spacy_models[core] = spacy.load(core)
+            except OSError:
+                raise OSError(f"Modelo SpaCy '{core}' não encontrado. Execute: python -m spacy download {core}")
+        
+        # Garante o carregamento do SnowballStemmer do NLTK
+        try:
+            from nltk.stem.snowball import SnowballStemmer
+            stemmer_pt = SnowballStemmer(stem_language)
+        except ImportError:
+            raise ImportError("NLTK é necessário. Instale: pip install nltk")
+
+        nlp = TextUtils._spacy_models[core]
+        doc = nlp(txt)
+        
+        tokens_final = []
+        
+        for token in doc:
+            # 1. Remoção de pontuação e espaços
+            if token.is_punct or token.is_space:
+                continue
+                
+            # 2. Lematização base
+            lema = token.lemma_.lower()
+            
+            # 3. Stemming seletivo para Verbos (VERB/AUX) e Advérbios (ADV)
+            if token.pos_ in ["VERB", "AUX", "ADV"]:
+                token_processado = stemmer_pt.stem(lema)
+            else:
+                # Substantivos (NOUN, PROPN), adjetivos (ADJ), etc., ficam no lema
+                token_processado = lema
+
+            # 4. Filtro de comprimento mínimo
+            if len(token_processado) >= 2:
+                tokens_final.append(token_processado)
+                
+        return tokens_final

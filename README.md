@@ -29,7 +29,6 @@ O projeto utiliza as seguintes bibliotecas:
 *   `spacy`
 *   `nltk`
 *   `beautifulsoup4`
-*   `snowballstemmer`
 
 **Recursos Necessários (Download Manual):**
 
@@ -62,7 +61,7 @@ A classe `ProcessLinked` adota o padrão *Builder*, permitindo que você monte u
 
 #### Cenário A: Anonimização de Peças Jurídicas (Substituição de Dados)
 
-Em vez de apenas deletar as informações, você pode usar o argumento `change_for` para mascarar dados sensíveis antes de enviar o texto para uma API externa ou modelo público.
+Em vez de apenas deletar as informações, você pode usar o argumento `change_to` para mascarar dados sensíveis antes de enviar o texto para uma API externa ou modelo público.
 
 ```python
 from berna_tjgo_diacde_lib import ProcessLinked
@@ -70,10 +69,10 @@ from berna_tjgo_diacde_lib import ProcessLinked
 # 1. Define a receita de anonimização (o pipeline é reutilizável)
 anonimizador = (
     ProcessLinked()
-    .filter_cpf(change_for="[CPF_ANONIMIZADO]")
-    .filter_cnpj(change_for="[CNPJ_ANONIMIZADO]")
-    .filter_oab(change_for="[OAB_ANONIMIZADO]")
-    .filter_telefone(change_for="[TEL_ANONIMIZADO]")
+    .filter_cpf(change_to="[CPF_ANONIMIZADO]")
+    .filter_cnpj(change_to="[CNPJ_ANONIMIZADO]")
+    .filter_oab(change_to="[OAB_ANONIMIZADO]")
+    .filter_telefone(change_to="[TEL_ANONIMIZADO]")
     .filter_spaces() # Garante espaçamento limpo após as trocas
 )
 
@@ -122,20 +121,24 @@ print(tokens_limpos)
 
 ### Métodos Disponíveis (via `TextUtils`)
 
+> **Nota sobre Parâmetros:** Métodos iniciados com `filter_` permitem o uso opcional do parâmetro `change_to` para definir um texto de substituição (útil para anonimização).
+
 | Método | Descrição |
 | --- | --- |
-| `filter_special_characters` | Remove pontuação e caracteres especiais. |
-| `filter_spaces` | Padroniza múltiplos espaços para um único espaço. |
-| `filter_numbers` | Remove caracteres numéricos. |
-| `filter_links` | Remove URLs e links. |
-| `filter_email` | Remove endereços de e-mail. |
-| `filter_cnpj`/`cpf`/`rg` | Filtros específicos para documentos brasileiros. |
-| `filter_cep`/`oab` | Filtros para códigos postais e registros da OAB. |
-| `remove_stopwords` | Remove palavras comuns (ex: "e", "de", "o"). |
-| `remove_html` | Remove tags HTML via BeautifulSoup. |
 | `lemmatize` | Reduz palavras à forma base (lema) usando spaCy. |
 | `stemming` | Reduz palavras à raiz usando snowballstemmer. |
 | `tokenize` | Divide o texto em uma lista de tokens (palavras ou sentenças, dependendo da implementação interna do NLTK). |
+| `normalizacao_hibrida` | Aplica um processo híbrido: Lematização para substantivos/adjetivos e Stemming seletivo para verbos/advérbios, com limpeza de pontuação e filtro de tamanho. |
+| `remove_html` | Remove tags HTML via BeautifulSoup. |
+| `remove_stopwords` | Remove palavras comuns (ex: "e", "de", "o"). |
+| `filter_special_characters` | Remove caracteres especiais; substitui pelo `change_to` (default=""). |
+| `filter_spaces` | Padroniza múltiplos espaços; substitui pelo `change_to` (default=" "). |
+| `filter_numbers` | Remove caracteres numéricos; substitui pelo `change_to` (default=""). |
+| `filter_links` | Remove links; substitui pelo `change_to` (default=""). |
+| `filter_email` | Remove e-mails; substitui pelo `change_to` (default=""). |
+| `filter_cnpj`/`cpf`/`rg` | Filtra documentos (CNPJ, CPF, RG); substitui pelo `change_to` (default=""). |
+| `filter_cep`/`oab` | Filtra códigos (CEP, OAB); substitui pelo `change_to` (default=""). |
+| `lower` | Converte os caracteres para sua forma em minúsculo. |
 
 
 ---
