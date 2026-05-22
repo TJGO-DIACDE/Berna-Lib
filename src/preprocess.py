@@ -20,48 +20,56 @@ class ProcessLinked:
     def __init__(self) -> Self:
         self._steps: list[tuple[Callable, dict[str, any]]] = []
 
-    def filter_special_characters(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_special_characters, change_for=change_for)
+    def filter_special_characters(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_special_characters, change_to=change_to)
         return self
 
-    def filter_spaces(self, change_for = " ") -> Self:
-        self._add_step(TextUtils.filter_spaces, change_for=change_for)
+    def filter_spaces(self, change_to = " ") -> Self:
+        self._add_step(TextUtils.filter_spaces, change_to=change_to)
+        return self
+    
+    def lower(self) -> Self:
+        self._add_step(str.lower)
+        return self
+    
+    def normalizar_hibrido(self, core = "pt_core_news_sm", stem_language = "portuguese") -> Self:
+        self._add_step(TextUtils.normalizacao_hibrida, core=core, stem_language=stem_language)
         return self
 
-    def filter_numbers(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_numbers, change_for=change_for)
+    def filter_numbers(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_numbers, change_to=change_to)
         return self
 
-    def filter_links(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_links, change_for=change_for)
+    def filter_links(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_links, change_to=change_to)
         return self
 
-    def filter_email(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_email, change_for=change_for)
+    def filter_email(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_email, change_to=change_to)
         return self
 
-    def filter_cnpj(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_cnpj, change_for=change_for)
+    def filter_cnpj(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_cnpj, change_to=change_to)
         return self
 
-    def filter_cpf(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_cpf, change_for=change_for)
+    def filter_cpf(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_cpf, change_to=change_to)
         return self
 
-    def filter_rg(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_rg, change_for=change_for)
+    def filter_rg(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_rg, change_to=change_to)
         return self
 
-    def filter_cep(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_cep, change_for=change_for)
+    def filter_cep(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_cep, change_to=change_to)
         return self
 
-    def filter_oab(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_oab, change_for=change_for)
+    def filter_oab(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_oab, change_to=change_to)
         return self
 
-    def filter_telefone(self, change_for = "") -> Self:
-        self._add_step(TextUtils.filter_telefone, change_for=change_for)
+    def filter_telefone(self, change_to = "") -> Self:
+        self._add_step(TextUtils.filter_telefone, change_to=change_to)
         return self
 
     def remove_stopwords(self, language = "portuguese") -> Self:
@@ -82,10 +90,16 @@ class ProcessLinked:
 
     # Ending Trigger
     def as_tokens(self, txt: str) -> list[str]:
-        return TextUtils.tokenize(self._process(txt))
+        resultado = self._process(txt)
+        if isinstance(resultado, list):
+            return resultado
+        return TextUtils.tokenize(resultado)
 
     def as_str(self, txt: str) -> str:
-        return self._process(txt)
+        resultado = self._process(txt)
+        if isinstance(resultado, list):
+            return " ".join(resultado)
+        return resultado
 
     # Internal Utils
     def _process(self, txt: str) -> str:
@@ -96,24 +110,19 @@ class ProcessLinked:
     def _add_step(self, fn: Callable, **kwargs):
         self._steps.append((fn, kwargs))
 
-documento_sujo = """
-<p>O réu estava <b>correndo</b> risco de vida na comarca de Goiânia.</p>
-Acesse o processo em https://tjgo.jus.br ou envie e-mail para processual@tjgo.jus.br.
-"""
+if __name__ == "__main__":
+    documento_sujo = """
+    <p>O réu não trabalhou, agindo rapidamente de forma prejudicial.</p>
+    Marcador_Pagina_12
+    """
 
-# Monta o pipeline de limpeza profunda
-pipeline_nlp = (
-    ProcessLinked()
-    .remove_html()               # Remove tags <p> e <b>
-    .filter_links()              # Remove a URL do TJGO
-    .filter_email()              # Remove o e-mail institucional
-    .filter_special_characters() # Remove pontuações restantes
-    .lemmatize()                 # Reduz palavras (ex: "correndo" -> "correr")
-    .remove_stopwords()          # Remove "O", "estava", "de", "para", etc.
-)
+    pipeline_juridico = (
+        ProcessLinked()
+        .remove_html()               # Passo 1: HTML
+        .filter_spaces()             # Passo 1: Espaços e caracteres de controle
+        .lower()                     # Passo 2: Lowercasing
+        .normalizar_hibrido()        # Passos 3, 4, 5 e 6 combinados (Alta performance)
+    )
 
-# Dispara o processamento convertendo direto para lista de tokens
-tokens_limpos = pipeline_nlp.as_tokens(documento_sujo)
-
-print(tokens_limpos)
-# Saída provável: ['réu', 'correr', 'risco', 'vida', 'comarca', 'Goiânia', 'acesse', 'processo', 'enviar']
+    tokens_processados = pipeline_juridico.as_tokens(documento_sujo)
+    print(tokens_processados)
